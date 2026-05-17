@@ -6,9 +6,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-            # Project-specific nginx config (same directory)
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ../nginx/certs:/etc/nginx/certs:ro
+      - ../nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../nginx/cert:/etc/nginx/certs:ro
     depends_on:
       - express1
       - express2
@@ -17,7 +16,9 @@ services:
       - app-network
 
   express1:
-    build: ./server
+    build:
+      context: ./server
+      dockerfile: Dockerfile
     container_name: express-server-1
     expose:
       - "3000"
@@ -43,7 +44,9 @@ services:
       - app-network
 
   express2:
-    build: ./server
+    build:
+      context: ./server
+      dockerfile: Dockerfile
     container_name: express-server-2
     expose:
       - "3000"

@@ -65,14 +65,24 @@ jobs:
           echo "app_runtime_aws_access_key_id=$access_key_id" >> "$GITHUB_OUTPUT"
           echo "app_runtime_aws_secret_access_key=$secret_access_key" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Server Directory
+      - name: Prepare App Directory
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.IP_ADDRESS }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          script: |
+            mkdir -p "${{ secrets.PROJECT_PATH }}"
+            rm -rf "${{ secrets.PROJECT_PATH }}/server"
+
+      - name: Upload App Directory
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.IP_ADDRESS }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
-          source: app/server/
-          target: ${{ secrets.PROJECT_PATH }}/app
+          source: app/
+          target: ${{ secrets.PROJECT_PATH }}
           strip_components: 1
 
       - name: Rebuild Server Services
@@ -82,7 +92,7 @@ jobs:
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
           script: |
-            cd ${{ secrets.PROJECT_PATH }}/app
+            cd ${{ secrets.PROJECT_PATH }}
             cat <<EOF > .env
             AWS_ACCESS_KEY_ID=${{ steps.terraform_outputs.outputs.app_runtime_aws_access_key_id }}
             AWS_SECRET_ACCESS_KEY=${{ steps.terraform_outputs.outputs.app_runtime_aws_secret_access_key }}
@@ -95,4 +105,4 @@ jobs:
             database=${{ secrets.TF_DB_NAME }}
             sslmode=${{ secrets.TF_DB_SSLMODE }}
             EOF
-            docker compose up -d --build express1 express2
+            docker compose up -d --build express1 express2 nginx
