@@ -26,6 +26,11 @@ jobs:
           role-to-assume: arn:aws:iam::608907253722:role/github-actions-drawing-board
           aws-region: ${{ secrets.TF_AWS_REGION }}
 
+      - name: Download CA Certificate
+        run: |
+          aws s3 cp "${{ secrets.TF_CA_CERT_S3_URI }}" lambda/ca-certificate.crt
+          aws s3 cp "${{ secrets.TF_CA_CERT_S3_URI }}" app/server/ca-certificate.crt
+
       - name: Write Prod Terraform Vars
         working-directory: terraform
         run: |
