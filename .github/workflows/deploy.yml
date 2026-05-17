@@ -26,10 +26,27 @@ jobs:
           role-to-assume: arn:aws:iam::608907253722:role/github-actions-drawing-board
           aws-region: ${{ secrets.TF_AWS_REGION }}
 
+      - name: Set Up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Download CA Certificate
         run: |
           aws s3 cp "${{ secrets.TF_CA_CERT_S3_URI }}" lambda/ca-certificate.crt
           aws s3 cp "${{ secrets.TF_CA_CERT_S3_URI }}" app/server/ca-certificate.crt
+
+      - name: Install Server Dependencies
+        working-directory: app/server
+        run: npm i
+
+      - name: Install Lambda Dependencies
+        working-directory: lambda
+        run: npm i
+
+      - name: Package Lambda Zip
+        working-directory: lambda
+        run: npm run zip
 
       - name: Write Prod Terraform Vars
         working-directory: terraform
