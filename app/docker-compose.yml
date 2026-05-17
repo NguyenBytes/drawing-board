@@ -26,6 +26,11 @@ services:
     environment:
       - NODE_ENV=production
       - SERVER_ID=1
+      - AWS_PROFILE=${AWS_PROFILE}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - QUEUE_URL=${QUEUE_URL}
       # Your exact variable names
       - username=${username}
       - password=${password}
@@ -33,7 +38,6 @@ services:
       - port=${port}
       - database=${database}
       - sslmode=${sslmode}
-      - openai=${openai}
     restart: unless-stopped
     networks:
       - app-network
@@ -48,6 +52,11 @@ services:
     environment:
       - NODE_ENV=production
       - SERVER_ID=2
+      - AWS_PROFILE=${AWS_PROFILE}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - QUEUE_URL=${QUEUE_URL}
       # Your exact variable names
       - username=${username}
       - password=${password}
@@ -55,7 +64,6 @@ services:
       - port=${port}
       - database=${database}
       - sslmode=${sslmode}
-      - openai=${openai}
     restart: unless-stopped
     networks:
       - app-network

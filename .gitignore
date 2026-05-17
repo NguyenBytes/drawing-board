@@ -2,6 +2,27 @@
 node_modules/
 **/node_modules/
 
+# Terraform
+.terraform/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfvars
+**/*.tfvars
+*.tfvars.json
+**/*.tfvars.json
+*.tfvars.example
+**/*.tfvars.example
+terraform.rc
+terraform.tfplan
+*.tfplan
+
 # Environment files (any depth)
 .env
 .env.*
@@ -11,5 +32,9 @@ node_modules/
 # macOS junk
 .DS_Store
 **/.DS_Store
+
+# Certificates
+*.crt
+**/*.crt
 
 cert

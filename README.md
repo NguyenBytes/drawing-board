@@ -1,85 +1,90 @@
-# Drawing Board
+# Drawing Board Monorepo
 
-A collaborative pixel art canvas powered by AI. Draw pixel by pixel, or let GPT-4o generate art from your imagination.
+This repo is now a small monorepo centered on Terraform. The existing Drawing Board app lives in `app/`, and the AWS infrastructure is split into reusable Terraform modules driven from a single workspace-aware root.
 
-**[Live Demo: https://gridsketching.com](https://gridsketching.com)**
+## Structure
 
-## What is this?
-
-Drawing Board is a multiplayer pixel canvas where anyone can create, collaborate, and experiment with pixel art. Think r/place meets DALL-E, but simpler and hackable.
-
-**Key Features:**
-- **1000x1000 pixel canvas** - Divided into 100 squares, each with a 20x20 grid
-- **AI-powered drawing** - Describe what you want, GPT-4o draws it
-- **Collaborative** - Multiple users can draw simultaneously
-- **Persistent** - Every pixel is saved and survives restarts
-
-## Tech Stack
-
-- Node.js + Express
-- MySQL database
-- OpenAI API (GPT-4o)
-- HTML5 Canvas
-- Bootstrap 5
-- Docker + Nginx for deployment
-
-## Architecture
-
-```
-┌─────────────┐
-│   Browser   │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│    Nginx    │  ← Load Balancer
-└──────┬──────┘
-       │
-   ┌───┴────┐
-   ▼        ▼
-┌──────┐ ┌──────┐
-│ App1 │ │ App2 │  ← Express Servers
-└───┬──┘ └───┬──┘
-    │        │
-    └────┬───┘
-         ▼
-    ┌─────────┐
-    │  MySQL  │  ← Pixel Storage
-    └─────────┘
-         +
-    ┌─────────┐
-    │ OpenAI  │  ← AI Generation
-    └─────────┘
+```text
+app/                 Existing Node/Express app, nginx config, certs, compose file
+lambda/              Lambda source used by Terraform
+terraform/
+  main.tf            Shared root module keyed off the selected workspace
+  variables.tf       Shared inputs for all workspaces
+  outputs.tf         Shared outputs for all workspaces
+  dev.tfvars         Values for the dev environment
+  prod.tfvars        Values for the prod environment
+  modules/
+    lambda/          Lambda function packaging, IAM, and optional SQS trigger
+    sqs/             SQS queue with optional DLQ
 ```
 
-## How it Works
+## What Terraform Creates
 
-1. **Canvas Grid** - The main canvas is a 10x10 grid. Click any square to zoom in
-2. **Pixel Drawing** - Each square contains a 20x20 pixel grid where you can draw pixel by pixel
-3. **AI Generation** - Describe what you want to draw and GPT-4o generates the pixel coordinates
-4. **Persistence** - Every pixel is saved so your art survives restarts and can be viewed by others
-5. **Scalability** - Load balanced architecture handles multiple concurrent users
+- `modules/sqs`: creates an SQS queue and DLQ
+- `modules/lambda`: packages and deploys an ES module Lambda from `lambda/index.js` and subscribes it to the queue
+- `terraform` root: creates the queue and Lambda for both workspaces
 
-## Customization Ideas
+## App Location
 
-- Add user authentication
-- Implement real-time updates with WebSockets
-- Add color palettes or themes
-- Create time-lapse recordings of the canvas
-- Add undo/redo functionality
-- Implement layers or multiple canvases
-- Add pixel history tracking
+The original project files were moved here:
 
-## License
+- `app/server`
+- `app/nginx`
+- `app/docker-compose.yml`
+- `app/cert`
 
-ISC
+Run the existing app locally from `app/` the same way you did before.
 
-## Contributing
+## Terraform Usage
 
-PRs welcome! This is a learning project, so feel free to experiment and break things.
+For local development queue + Lambda infrastructure:
 
-**Found a bug?** Please report it at [https://github.com/yourusername/drawing-board/issues](https://github.com/yourusername/drawing-board/issues)
+```bash
+cd terraform
+terraform init
+terraform workspace new dev || terraform workspace select dev
+terraform plan -var-file=dev.tfvars
+terraform apply -var-file=dev.tfvars
+```
 
----
+For production:
 
-Built with curiosity and a love for pixel art.
+```bash
+cd terraform
+terraform init
+terraform workspace new prod || terraform workspace select prod
+terraform plan -var-file=prod.tfvars
+terraform apply -var-file=prod.tfvars
+```
+
+After `terraform apply`, run your app with your existing AWS profile and the queue URL:
+
+```bash
+AWS_PROFILE=your-profile-name
+AWS_REGION=us-west-2
+QUEUE_URL=...
+```
+
+Or provide explicit credentials, which is the simpler option for Docker Compose:
+
+```bash
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=us-west-2
+QUEUE_URL=...
+```
+
+Get the queue URL from Terraform output:
+
+```bash
+cd terraform
+terraform workspace select dev
+terraform output -raw queue_url
+```
+
+The dev Terraform stack does not create separate "SQS credentials". SQS uses standard AWS credentials for an IAM user or role with `sqs:SendMessage` permission on the queue.
+
+## Notes
+
+- Database values live in `terraform/dev.tfvars` and `terraform/prod.tfvars`.
+- Workspaces still do not auto-pick a var file on their own; pass `-var-file=dev.tfvars` or `-var-file=prod.tfvars` explicitly.
