@@ -6,11 +6,19 @@ This repo contains the app, Lambda worker, and Terraform infrastructure for Draw
 
 ## Project Goal
 
-This project was used to strengthen practical infrastructure and delivery skills alongside application development. The primary goals were to:
+In the era of AI, I have to keep raising my skillset instead of treating application code as the whole job. This project was a way to push deeper into infrastructure, deployment, and operational thinking so I can build and ship more complete systems.
+
+The primary goals were to:
 
 - build hands-on experience with Terraform for provisioning and managing AWS infrastructure
 - implement a CI/CD workflow that plans, applies, and deploys production changes through GitHub Actions
 - improve end-to-end ownership of application delivery, including infrastructure, deployment automation, and runtime configuration
+
+## What I Learned
+
+AI sped up development like crazy on this project. It was able to teach me how Terraform is used in practice, and helped me compare where it fits relative to other tools and patterns I have looked at, including Kafka and Kubernetes.
+
+I also learned to appreciate AWS IAM roles and the way AWS services can be tightly connected. A lot of the setup is just roles and permissions pointing to the right resources, with very little exposed publicly. Multi-cloud solutions can be strong too, but there are definite tradeoffs in complexity, integration depth, and operational overhead.
 
 ## Structure
 
@@ -23,73 +31,16 @@ app/
   docker-compose.yml
   cert/
   nginx/
-    nginx.conf
   server/
-    Dockerfile
-    controllers/
-      coordinateController.js
-    db/
-      coordinates.sql
-    db.js
-    index.js
-    models/
-      coordinate.js
-    package-lock.json
-    package.json
-    routes/
-      coordinates.js
-    sqs.js
-    src/
-      drawing.ico
-      index.css
-      index.html
-      js/
-        drawing-canvas/
-          controllers/
-            DrawingController.js
-          draw.js
-          models/
-            DrawingModel.js
-          views/
-            DrawingView.js
-        main-grid/
-          controllers/
-            GridController.js
-          index.js
-          models/
-            GridModel.js
-          views/
-            GridView.js
-      square.html
 
 lambda/
-  index.js
-  mysql-lambda.zip
-  package-lock.json
-  package.json
 
 terraform/
-  .terraform.lock.hcl
+  modules/
+  provision-dev.sh
   destroy-dev.sh
   main.tf
-  modules/
-    lambda/
-      build/
-        drawing-board-dev-worker/
-          index.js
-          package-lock.json
-          package.json
-      drawing-board-dev-worker.zip
-      drawing-board-prod-worker.zip
-      main.tf
-      outputs.tf
-      variables.tf
-    sqs/
-      main.tf
-      outputs.tf
-      variables.tf
   outputs.tf
-  provision-dev.sh
   variables.tf
 
 terraform-backend.hcl
@@ -214,3 +165,7 @@ These are written by GitHub Actions from Terraform outputs after the `prod` appl
 - `prod.tfvars` contains secrets when generated in CI and should not be committed.
 - `.zip` artifacts are ignored in git.
 - `github-actions-iam-policy.json` is the local reference copy for the GitHub Actions IAM role policy.
+
+## Next Steps
+
+- Add blue-green deployments using DigitalOcean and Cloudflare CLIs.
