@@ -37,6 +37,10 @@ terraform.tfplan
 *.crt
 **/*.crt
 
+# Zip artifacts
+*.zip
+**/*.zip
+
 cert
 
 github-actions-iam-policy.json
