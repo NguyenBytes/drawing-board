@@ -72,7 +72,7 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.TF_AWS_REGION }}
         run: |
-          terraform init
+          terraform init -backend-config=../terraform-backend.hcl
           terraform validate
           terraform workspace select prod || terraform workspace new prod
           terraform plan -out=tfplan -var-file=prod.tfvars
