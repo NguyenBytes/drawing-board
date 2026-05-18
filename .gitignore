@@ -39,4 +39,4 @@ terraform.tfplan
 
 cert
 
-github-actions-iam-policy.txt
+github-actions-iam-policy.json
