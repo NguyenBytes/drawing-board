@@ -26,6 +26,9 @@ jobs:
           role-to-assume: arn:aws:iam::608907253722:role/github-actions-drawing-board
           aws-region: ${{ secrets.TF_AWS_REGION }}
 
+      - name: Verify AWS Caller Identity
+        run: aws sts get-caller-identity
+
       - name: Set Up Node.js
         uses: actions/setup-node@v4
         with:
