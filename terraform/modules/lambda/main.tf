@@ -1,42 +1,8 @@
-locals {
-  build_dir = "${path.module}/build/${var.function_name}"
-}
-
-resource "terraform_data" "package_dir" {
-  triggers_replace = concat(
-    [
-      filemd5(var.source_file),
-    ],
-    [for file_path in var.extra_file_paths : filemd5(file_path)],
-  )
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      mkdir -p "${local.build_dir}"
-      cp "${var.source_file}" "${local.build_dir}/index.js"
-      if [ -n "${var.package_json_path}" ]; then
-        cp "${var.package_json_path}" "${local.build_dir}/package.json"
-      fi
-      if [ -n "${var.package_lock_path}" ]; then
-        cp "${var.package_lock_path}" "${local.build_dir}/package-lock.json"
-      fi
-      if [ -n "${var.dependencies_path}" ]; then
-        rm -rf "${local.build_dir}/node_modules"
-        cp -R "${var.dependencies_path}" "${local.build_dir}/node_modules"
-      fi
-%{for file_path in var.extra_file_paths~}
-      cp "${file_path}" "${local.build_dir}/$(basename "${file_path}")"
-%{endfor~}
-    EOT
-  }
-}
-
 data "archive_file" "package" {
   type        = "zip"
-  source_dir  = local.build_dir
+  source_dir  = dirname(var.source_file)
   output_path = "${path.module}/${var.function_name}.zip"
-
-  depends_on = [terraform_data.package_dir]
+  excludes    = var.archive_excludes
 }
 
 data "aws_iam_policy_document" "assume_role" {

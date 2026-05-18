@@ -26,6 +26,11 @@ variable "extra_file_paths" {
   default = []
 }
 
+variable "archive_excludes" {
+  type    = list(string)
+  default = []
+}
+
 variable "handler" {
   type    = string
   default = "index.handler"

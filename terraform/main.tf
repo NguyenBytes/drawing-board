@@ -85,6 +85,7 @@ module "worker" {
   package_json_path  = "${path.module}/../lambda/package.json"
   package_lock_path  = "${path.module}/../lambda/package-lock.json"
   extra_file_paths   = ["${path.module}/../lambda/ca-certificate.crt"]
+  archive_excludes   = ["mysql-lambda.zip"]
   queue_arn          = module.queue.queue_arn
   enable_sqs_trigger = true
 
