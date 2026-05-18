@@ -18,34 +18,9 @@ The primary goals were to:
 
 AI sped up development like crazy on this project. It was able to teach me how Terraform is used in practice, and helped me compare where it fits relative to other tools and patterns I have looked at, including Kafka and Kubernetes.
 
+I spent a lot more time researching systems design tradeoffs too. Part of the value of this project was comparing approaches like Jenkins vs GitHub Actions and CloudFormation vs Terraform, and getting a better feel for why one choice is cleaner in a given context even when there is no perfect answer.
+
 I also learned to appreciate AWS IAM roles and the way AWS services can be tightly connected. A lot of the setup is just roles and permissions pointing to the right resources, with very little exposed publicly. Multi-cloud solutions can be strong too, but there are definite tradeoffs in complexity, integration depth, and operational overhead.
-
-## Structure
-
-```text
-.github/
-  workflows/
-    deploy.yml
-
-app/
-  docker-compose.yml
-  cert/
-  nginx/
-  server/
-
-lambda/
-
-terraform/
-  modules/
-  provision-dev.sh
-  destroy-dev.sh
-  main.tf
-  outputs.tf
-  variables.tf
-
-terraform-backend.hcl
-github-actions-iam-policy.json
-```
 
 ## CI/CD
 
@@ -62,8 +37,6 @@ The pipeline currently acts as both infrastructure delivery and application depl
 7. It applies that saved Terraform plan to update AWS infrastructure.
 8. After apply, it reads Terraform outputs for:
    - `queue_url`
-   - `app_runtime_aws_access_key_id`
-   - `app_runtime_aws_secret_access_key`
 9. It installs server dependencies for the Express app.
 10. It connects to the VPS, prepares the target directory, uploads `app/`, writes the remote `.env`, and rebuilds `express1`, `express2`, and `nginx` with Docker Compose.
 
@@ -141,25 +114,6 @@ Useful output:
 terraform output -raw queue_url
 ```
 
-## Deployment Layout
-
-The deploy workflow uploads the `app/` directory and rebuilds the runtime with Docker Compose. The compose file expects:
-
-- `app/nginx/nginx.conf` to be mounted into the nginx container.
-- `app/cert/` to be mounted into the Express containers.
-- TLS certificates for nginx to be available from a sibling `nginx/certs` path relative to `app/docker-compose.yml`.
-
-## App AWS Runtime Credentials
-
-The app uses explicit AWS env vars in production:
-
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_REGION`
-- `QUEUE_URL`
-
-These are written by GitHub Actions from Terraform outputs after the `prod` apply succeeds.
-
 ## Notes
 
 - `prod.tfvars` contains secrets when generated in CI and should not be committed.
@@ -169,3 +123,4 @@ These are written by GitHub Actions from Terraform outputs after the `prod` appl
 ## Next Steps
 
 - Add blue-green deployments using DigitalOcean and Cloudflare CLIs.
+- Add a DigitalOcean load balancer to improve rollout and traffic management.
