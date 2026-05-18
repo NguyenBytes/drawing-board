@@ -15,10 +15,6 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    outputs:
-      queue_url: ${{ steps.terraform_outputs.outputs.queue_url }}
-      app_runtime_aws_access_key_id: ${{ steps.terraform_outputs.outputs.app_runtime_aws_access_key_id }}
-      app_runtime_aws_secret_access_key: ${{ steps.terraform_outputs.outputs.app_runtime_aws_secret_access_key }}
 
     steps:
       - name: Check Out Repository
@@ -99,31 +95,6 @@ jobs:
           echo "app_runtime_aws_access_key_id=$access_key_id" >> "$GITHUB_OUTPUT"
           echo "app_runtime_aws_secret_access_key=$secret_access_key" >> "$GITHUB_OUTPUT"
 
-  deploy_app:
-    needs: provision
-    permissions:
-      id-token: write
-      contents: read
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check Out Repository
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::608907253722:role/github-actions-drawing-board
-          aws-region: ${{ secrets.TF_AWS_REGION }}
-
-      - name: Verify AWS Caller Identity
-        run: aws sts get-caller-identity
-
-      - name: Set Up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
       - name: Download CA Certificate
         run: aws s3 cp "${{ secrets.TF_CA_CERT_S3_URI }}" app/server/ca-certificate.crt
 
@@ -160,10 +131,10 @@ jobs:
           script: |
             cd ${{ secrets.PROJECT_PATH }}
             cat <<EOF > .env
-            AWS_ACCESS_KEY_ID=${{ needs.provision.outputs.app_runtime_aws_access_key_id }}
-            AWS_SECRET_ACCESS_KEY=${{ needs.provision.outputs.app_runtime_aws_secret_access_key }}
+            AWS_ACCESS_KEY_ID=${{ steps.terraform_outputs.outputs.app_runtime_aws_access_key_id }}
+            AWS_SECRET_ACCESS_KEY=${{ steps.terraform_outputs.outputs.app_runtime_aws_secret_access_key }}
             AWS_REGION=${{ secrets.TF_AWS_REGION }}
-            QUEUE_URL=${{ needs.provision.outputs.queue_url }}
+            QUEUE_URL=${{ steps.terraform_outputs.outputs.queue_url }}
             username=${{ secrets.TF_DB_USERNAME }}
             password=${{ secrets.TF_DB_PASSWORD }}
             host=${{ secrets.TF_DB_HOST }}
