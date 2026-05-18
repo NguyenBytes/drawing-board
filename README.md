@@ -1,90 +1,153 @@
-# Drawing Board Monorepo
+# Drawing Board
 
-This repo is now a small monorepo centered on Terraform. The existing Drawing Board app lives in `app/`, and the AWS infrastructure is split into reusable Terraform modules driven from a single workspace-aware root.
+Live site: [gridsketching.com](https://gridsketching.com)
+
+This repo contains the app, Lambda worker, and Terraform infrastructure for Drawing Board.
+
+## Project Goal
+
+This project was used to strengthen practical infrastructure and delivery skills alongside application development. The primary goals were to:
+
+- build hands-on experience with Terraform for provisioning and managing AWS infrastructure
+- implement a CI/CD workflow that plans, applies, and deploys production changes through GitHub Actions
+- improve end-to-end ownership of application delivery, including infrastructure, deployment automation, and runtime configuration
 
 ## Structure
 
 ```text
-app/                 Existing Node/Express app, nginx config, certs, compose file
-lambda/              Lambda source used by Terraform
+app/
+  docker-compose.yml      VPS compose file
+  cert/                   DB CA cert mounted into app containers
+  nginx/
+    nginx.conf            Nginx config uploaded with the app
+  server/                 Node/Express app
+
+lambda/                   Lambda worker source and dependencies
+
 terraform/
-  main.tf            Shared root module keyed off the selected workspace
-  variables.tf       Shared inputs for all workspaces
-  outputs.tf         Shared outputs for all workspaces
-  dev.tfvars         Values for the dev environment
-  prod.tfvars        Values for the prod environment
+  main.tf                 Root Terraform config
+  variables.tf            Shared inputs
+  outputs.tf              Shared outputs
+  dev.tfvars              Dev values
+  prod.tfvars             Prod values generated in CI
+  provision-dev.sh        Helper to provision dev resources with local state
+  destroy-dev.sh          Helper to destroy dev resources with local state
   modules/
-    lambda/          Lambda function packaging, IAM, and optional SQS trigger
-    sqs/             SQS queue with optional DLQ
+    lambda/               Lambda packaging, IAM, event source mapping
+    sqs/                  SQS queue and DLQ
+
+terraform-backend.hcl     S3 backend config for prod state
+github-actions-iam-policy.json
 ```
 
-## What Terraform Creates
+## Production
 
-- `modules/sqs`: creates an SQS queue and DLQ
-- `modules/lambda`: packages and deploys an ES module Lambda from `lambda/index.js` and subscribes it to the queue
-- `terraform` root: creates the queue and Lambda for both workspaces
+Production infrastructure is managed by Terraform and deployed through GitHub Actions.
 
-## App Location
+Current production flow:
 
-The original project files were moved here:
+1. GitHub Actions assumes the `github-actions-drawing-board` IAM role.
+2. CI downloads the CA cert into `lambda/` and `app/server/`.
+3. CI installs Lambda dependencies and packages the Lambda.
+4. Terraform uses the S3 backend from `terraform-backend.hcl`.
+5. Terraform plans and applies the `prod` workspace.
+6. Terraform outputs:
+   - `queue_url`
+   - `app_runtime_aws_access_key_id`
+   - `app_runtime_aws_secret_access_key`
+7. CI uploads `app/` to the VPS and writes those values into the remote `.env`.
+8. CI runs `docker compose up -d --build express1 express2 nginx`.
 
-- `app/server`
-- `app/nginx`
-- `app/docker-compose.yml`
-- `app/cert`
+Important production state notes:
 
-Run the existing app locally from `app/` the same way you did before.
+- `prod` Terraform state is stored in S3, not local state.
+- The backend config file stays in the repo root.
+- S3 bucket versioning should be enabled on the backend bucket.
+
+## Dev
+
+Dev resources are intentionally kept separate from the S3-backed `prod` state.
+
+Use the helper scripts in `terraform/`:
+
+```bash
+cd terraform
+bash provision-dev.sh
+```
+
+This provisions the `dev` resources using an isolated local-backend copy and saves the dev state backup under:
+
+```text
+terraform.tfstate.d.local-backup/dev/
+```
+
+To destroy dev resources:
+
+```bash
+cd terraform
+bash destroy-dev.sh
+```
+
+This uses the saved local dev state and destroys only the dev resources.
 
 ## Terraform Usage
 
-For local development queue + Lambda infrastructure:
+If you are working directly with production Terraform:
 
 ```bash
 cd terraform
-terraform init
-terraform workspace new dev || terraform workspace select dev
-terraform plan -var-file=dev.tfvars
-terraform apply -var-file=dev.tfvars
-```
-
-For production:
-
-```bash
-cd terraform
-terraform init
-terraform workspace new prod || terraform workspace select prod
+terraform init -backend-config=../terraform-backend.hcl
+terraform workspace select prod || terraform workspace new prod
 terraform plan -var-file=prod.tfvars
 terraform apply -var-file=prod.tfvars
 ```
 
-After `terraform apply`, run your app with your existing AWS profile and the queue URL:
+Useful output:
 
 ```bash
-AWS_PROFILE=your-profile-name
-AWS_REGION=us-west-2
-QUEUE_URL=...
-```
-
-Or provide explicit credentials, which is the simpler option for Docker Compose:
-
-```bash
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-AWS_REGION=us-west-2
-QUEUE_URL=...
-```
-
-Get the queue URL from Terraform output:
-
-```bash
-cd terraform
-terraform workspace select dev
 terraform output -raw queue_url
 ```
 
-The dev Terraform stack does not create separate "SQS credentials". SQS uses standard AWS credentials for an IAM user or role with `sqs:SendMessage` permission on the queue.
+## VPS Layout
+
+`PROJECT_PATH` should be the deployed app root on the VPS. After upload, it should contain:
+
+```text
+PROJECT_PATH/
+  docker-compose.yml
+  cert/
+  nginx/
+    nginx.conf
+  server/
+```
+
+Current certificate layout assumptions:
+
+- app DB CA cert is uploaded into:
+  - `server/ca-certificate.crt`
+- Cloudflare origin certs are expected outside `PROJECT_PATH`, at:
+  - `/root/nginx/certs`
+
+Because of that, `app/docker-compose.yml` mounts:
+
+- `./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro`
+- `../nginx/certs:/etc/nginx/certs:ro`
+
+If your VPS layout changes, update the compose mount paths to match.
+
+## App AWS Runtime Credentials
+
+The app uses explicit AWS env vars in production:
+
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_REGION`
+- `QUEUE_URL`
+
+These are written by GitHub Actions from Terraform outputs after the `prod` apply succeeds.
 
 ## Notes
 
-- Database values live in `terraform/dev.tfvars` and `terraform/prod.tfvars`.
-- Workspaces still do not auto-pick a var file on their own; pass `-var-file=dev.tfvars` or `-var-file=prod.tfvars` explicitly.
+- `prod.tfvars` contains secrets when generated in CI and should not be committed.
+- `.zip` artifacts are ignored in git.
+- `github-actions-iam-policy.json` is the local reference copy for the GitHub Actions IAM role policy.

@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - master
+    paths:
+      - '.github/workflows/deploy.yml'
+      - 'app/**'
+      - 'lambda/**'
+      - 'terraform/**'
+      - 'terraform-backend.hcl'
 
 permissions:
   id-token: write
