@@ -11,11 +11,17 @@ permissions:
 
 jobs:
   provision:
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/provision.yml
     secrets: inherit
 
   deploy_app:
     needs: provision
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/deploy-app.yml
     with:
       queue_url: ${{ needs.provision.outputs.queue_url }}
