@@ -15,54 +15,128 @@ This project was used to strengthen practical infrastructure and delivery skills
 ## Structure
 
 ```text
-app/
-  docker-compose.yml      VPS compose file
-  cert/                   DB CA cert mounted into app containers
-  nginx/
-    nginx.conf            Nginx config uploaded with the app
-  server/                 Node/Express app
+.github/
+  workflows/
+    deploy.yml
 
-lambda/                   Lambda worker source and dependencies
+app/
+  docker-compose.yml
+  cert/
+  nginx/
+    nginx.conf
+  server/
+    Dockerfile
+    controllers/
+      coordinateController.js
+    db/
+      coordinates.sql
+    db.js
+    index.js
+    models/
+      coordinate.js
+    package-lock.json
+    package.json
+    routes/
+      coordinates.js
+    sqs.js
+    src/
+      drawing.ico
+      index.css
+      index.html
+      js/
+        drawing-canvas/
+          controllers/
+            DrawingController.js
+          draw.js
+          models/
+            DrawingModel.js
+          views/
+            DrawingView.js
+        main-grid/
+          controllers/
+            GridController.js
+          index.js
+          models/
+            GridModel.js
+          views/
+            GridView.js
+      square.html
+
+lambda/
+  index.js
+  mysql-lambda.zip
+  package-lock.json
+  package.json
 
 terraform/
-  main.tf                 Root Terraform config
-  variables.tf            Shared inputs
-  outputs.tf              Shared outputs
-  dev.tfvars              Dev values
-  prod.tfvars             Prod values generated in CI
-  provision-dev.sh        Helper to provision dev resources with local state
-  destroy-dev.sh          Helper to destroy dev resources with local state
+  .terraform.lock.hcl
+  destroy-dev.sh
+  main.tf
   modules/
-    lambda/               Lambda packaging, IAM, event source mapping
-    sqs/                  SQS queue and DLQ
+    lambda/
+      build/
+        drawing-board-dev-worker/
+          index.js
+          package-lock.json
+          package.json
+      drawing-board-dev-worker.zip
+      drawing-board-prod-worker.zip
+      main.tf
+      outputs.tf
+      variables.tf
+    sqs/
+      main.tf
+      outputs.tf
+      variables.tf
+  outputs.tf
+  provision-dev.sh
+  variables.tf
 
-terraform-backend.hcl     S3 backend config for prod state
+terraform-backend.hcl
 github-actions-iam-policy.json
 ```
 
-## Production
+## CI/CD
 
-Production infrastructure is managed by Terraform and deployed through GitHub Actions.
+Production delivery runs through [`.github/workflows/deploy.yml`](/home/tom/Desktop/drawing-board/.github/workflows/deploy.yml). The workflow is triggered on pushes to `master` when files under `app/`, `lambda/`, `terraform/`, `terraform-backend.hcl`, or the workflow file itself change.
 
-Current production flow:
+The pipeline currently acts as both infrastructure delivery and application deployment:
 
-1. GitHub Actions assumes the `github-actions-drawing-board` IAM role.
-2. CI downloads the CA cert into `lambda/` and `app/server/`.
-3. CI installs Lambda dependencies and packages the Lambda.
-4. Terraform uses the S3 backend from `terraform-backend.hcl`.
-5. Terraform plans and applies the `prod` workspace.
-6. Terraform outputs:
+1. GitHub Actions checks out the repo and configures Terraform and Node.js.
+2. It assumes the `github-actions-drawing-board` IAM role by using GitHub OIDC through `aws-actions/configure-aws-credentials`.
+3. It downloads the database CA certificate from S3 into both `lambda/` and `app/server/`.
+4. It installs Lambda dependencies and packages the worker zip from `lambda/`.
+5. It generates `terraform/prod.tfvars` from GitHub Actions secrets at runtime.
+6. It runs `terraform init`, `terraform validate`, selects or creates the `prod` workspace, and creates a saved plan.
+7. It applies that saved Terraform plan to update AWS infrastructure.
+8. After apply, it reads Terraform outputs for:
    - `queue_url`
    - `app_runtime_aws_access_key_id`
    - `app_runtime_aws_secret_access_key`
-7. CI uploads `app/` to the VPS and writes those values into the remote `.env`.
-8. CI runs `docker compose up -d --build express1 express2 nginx`.
+9. It installs server dependencies for the Express app.
+10. It connects to the VPS, prepares the target directory, uploads `app/`, writes the remote `.env`, and rebuilds `express1`, `express2`, and `nginx` with Docker Compose.
+
+This is closer to a deployment pipeline than a broad validation pipeline. It does not currently run a separate test suite, lint job, or manual approval gate before apply.
+
+## Terraform State
+
+Production Terraform uses the S3 backend defined in [`terraform-backend.hcl`](/home/tom/Desktop/drawing-board/terraform-backend.hcl):
+
+```hcl
+bucket               = "github-actions-drawing-board"
+region               = "us-west-2"
+workspace_key_prefix = "terraform-state"
+use_lockfile         = true
+```
+
+That means the `prod` workspace state is remote, not local. The repo stores only backend configuration, while Terraform reads and writes production state in S3 during `terraform init`, `plan`, and `apply`.
 
 Important production state notes:
 
-- `prod` Terraform state is stored in S3, not local state.
-- The backend config file stays in the repo root.
-- S3 bucket versioning should be enabled on the backend bucket.
+- `terraform/main.tf` declares `backend "s3" {}` and the concrete backend values are passed in from `terraform-backend.hcl` during `terraform init`.
+- The workflow always selects the `prod` workspace before planning and applying, so production state stays isolated from other workspaces.
+- `use_lockfile = true` enables S3 lockfile-based state locking for applies.
+- S3 bucket versioning should be enabled so previous state versions can be recovered if needed.
 
 ## Dev
 
@@ -75,11 +149,7 @@ cd terraform
 bash provision-dev.sh
 ```
 
-This provisions the `dev` resources using an isolated local-backend copy and saves the dev state backup under:
-
-```text
-terraform.tfstate.d.local-backup/dev/
-```
+This provisions the `dev` resources using an isolated local-backend copy.
 
 To destroy dev resources:
 
@@ -88,7 +158,19 @@ cd terraform
 bash destroy-dev.sh
 ```
 
-This uses the saved local dev state and destroys only the dev resources.
+This uses local dev state and destroys only the dev resources.
+
+The separation here is deliberate:
+
+- `terraform/provision-dev.sh` copies the Terraform root into a temporary directory.
+- It removes the `backend "s3" {}` block from that temporary copy before running `terraform init`.
+- It then provisions the `dev` workspace with a local backend.
+- `terraform/destroy-dev.sh` uses local dev state to destroy only the `dev` workspace resources.
+
+So the setup is:
+
+- `prod` state: remote in S3, used by GitHub Actions and any direct production Terraform work.
+- `dev` state: local only, intentionally kept out of the S3 backend so it cannot interfere with production.
 
 ## Terraform Usage
 
@@ -108,32 +190,13 @@ Useful output:
 terraform output -raw queue_url
 ```
 
-## VPS Layout
+## Deployment Layout
 
-`PROJECT_PATH` should be the deployed app root on the VPS. After upload, it should contain:
+The deploy workflow uploads the `app/` directory and rebuilds the runtime with Docker Compose. The compose file expects:
 
-```text
-PROJECT_PATH/
-  docker-compose.yml
-  cert/
-  nginx/
-    nginx.conf
-  server/
-```
-
-Current certificate layout assumptions:
-
-- app DB CA cert is uploaded into:
-  - `server/ca-certificate.crt`
-- Cloudflare origin certs are expected outside `PROJECT_PATH`, at:
-  - `/root/nginx/certs`
-
-Because of that, `app/docker-compose.yml` mounts:
-
-- `./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro`
-- `../nginx/certs:/etc/nginx/certs:ro`
-
-If your VPS layout changes, update the compose mount paths to match.
+- `app/nginx/nginx.conf` to be mounted into the nginx container.
+- `app/cert/` to be mounted into the Express containers.
+- TLS certificates for nginx to be available from a sibling `nginx/certs` path relative to `app/docker-compose.yml`.
 
 ## App AWS Runtime Credentials
 
