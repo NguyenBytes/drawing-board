@@ -23,6 +23,11 @@ output "lambda_name" {
   value       = module.worker.function_name
 }
 
+output "dlq_retry_lambda_name" {
+  description = "Name of the Lambda function that retries DLQ messages."
+  value       = module.dlq_retry.function_name
+}
+
 output "app_runtime_aws_access_key_id" {
   description = "AWS access key ID for the prod app runtime user."
   value       = aws_iam_access_key.app_runtime.id

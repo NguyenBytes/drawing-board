@@ -1,10 +1,10 @@
 {
-  "name": "mysql-lambda",
+  "name": "database-lambda",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "zip": "rm -f mysql-lambda.zip && zip -rq mysql-lambda.zip index.js package.json package-lock.json node_modules ca-certificate.crt",
+    "zip": "rm -f database-lambda.zip && zip -rq database-lambda.zip index.js package.json package-lock.json node_modules ca-certificate.crt",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

@@ -97,10 +97,10 @@ database   = "your_database_name"
 sslmode    = "REQUIRED"
 ```
 
-Install the Lambda dependencies and place the database CA certificate at `lambda/ca-certificate.crt` before packaging.
+Install the Lambda dependencies and place the database CA certificate at `database-lambda/ca-certificate.crt` before packaging.
 
 ```bash
-cd ../lambda
+cd ../database-lambda
 npm install
 npm run zip
 cd ../terraform

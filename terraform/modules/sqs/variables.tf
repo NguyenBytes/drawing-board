@@ -9,7 +9,7 @@ variable "create_dlq" {
 
 variable "visibility_timeout_seconds" {
   type    = number
-  default = 30
+  default = 180
 }
 
 variable "message_retention_seconds" {

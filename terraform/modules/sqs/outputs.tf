@@ -13,3 +13,7 @@ output "queue_arn" {
 output "dlq_arn" {
   value = var.create_dlq ? aws_sqs_queue.dlq[0].arn : null
 }
+
+output "dlq_url" {
+  value = var.create_dlq ? aws_sqs_queue.dlq[0].url : null
+}

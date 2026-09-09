@@ -81,12 +81,8 @@ module "worker" {
   source = "./modules/lambda"
 
   function_name      = "${local.name_prefix}-worker"
-  source_file        = "${path.module}/../lambda/index.js"
-  dependencies_path  = "${path.module}/../lambda/node_modules"
-  package_json_path  = "${path.module}/../lambda/package.json"
-  package_lock_path  = "${path.module}/../lambda/package-lock.json"
-  extra_file_paths   = ["${path.module}/../lambda/ca-certificate.crt"]
-  archive_excludes   = ["mysql-lambda.zip"]
+  source_file        = "${path.module}/../database-lambda/index.js"
+  archive_excludes   = ["database-lambda.zip"]
   queue_arn          = module.queue.queue_arn
   enable_sqs_trigger = true
 
@@ -102,4 +98,18 @@ module "worker" {
   }
 
   tags = local.common_tags
+}
+
+module "dlq_retry" {
+  source = "./modules/dlq_retry_lambda"
+
+  function_name               = "${local.name_prefix}-dlq-retry"
+  source_dir                  = "${path.module}/../dlq-retry-lambda"
+  archive_excludes            = ["dlq-retry-lambda.zip"]
+  dlq_arn                     = module.queue.dlq_arn
+  dlq_url                     = module.queue.dlq_url
+  main_queue_arn              = module.queue.queue_arn
+  main_queue_url              = module.queue.queue_url
+  max_messages_per_invocation = 10
+  tags                        = local.common_tags
 }

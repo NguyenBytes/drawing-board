@@ -122,36 +122,92 @@ function toQueuedRequest(message) {
   };
 }
 
+function emitInvocationMetrics({
+  invocationType,
+  received,
+  processed,
+  failed,
+  durationMs,
+}) {
+  console.log(
+    JSON.stringify({
+      _aws: {
+        Timestamp: Date.now(),
+        CloudWatchMetrics: [
+          {
+            Namespace: "DrawingBoard/DatabaseLambda",
+            Dimensions: [["InvocationType"]],
+            Metrics: [
+              { Name: "Invocations", Unit: "Count" },
+              { Name: "RecordsReceived", Unit: "Count" },
+              { Name: "RecordsProcessed", Unit: "Count" },
+              { Name: "RecordsFailed", Unit: "Count" },
+              { Name: "InvocationDuration", Unit: "Milliseconds" },
+            ],
+          },
+        ],
+      },
+      InvocationType: invocationType,
+      Invocations: 1,
+      RecordsReceived: received,
+      RecordsProcessed: processed,
+      RecordsFailed: failed,
+      InvocationDuration: durationMs,
+    }),
+  );
+}
+
 export const handler = async (event) => {
+  const startedAt = Date.now();
   const isSqsEvent = Array.isArray(event.Records) && event.Records.length > 0;
+  const received = isSqsEvent ? event.Records.length : 1;
+  let processed = 0;
+  let failed = 0;
 
   try {
     if (isSqsEvent) {
-      const results = await Promise.all(
-        event.Records.map(async (record) => {
-          const result = await handleHttpEvent(toQueuedRequest(record.body));
+      const batchItemFailures = [];
 
-          return {
-            messageId: record.messageId,
-            statusCode: result.statusCode,
-          };
+      await Promise.all(
+        event.Records.map(async (record) => {
+          try {
+            const result = await handleHttpEvent(toQueuedRequest(record.body));
+
+            if (result.statusCode >= 400) {
+              throw new Error(`Message handler returned ${result.statusCode}`);
+            }
+          } catch (error) {
+            console.error(`Unable to process SQS message ${record.messageId}`, error);
+            batchItemFailures.push({ itemIdentifier: record.messageId });
+          }
         }),
       );
 
-      return {
-        processed: results.length,
-        results,
-      };
+      failed = batchItemFailures.length;
+      processed = received - failed;
+      return { batchItemFailures };
     }
 
-    return await handleHttpEvent(event);
+    const result = await handleHttpEvent(event);
+    processed = result.statusCode < 400 ? 1 : 0;
+    failed = result.statusCode >= 400 ? 1 : 0;
+    return result;
   } catch (error) {
     console.error(error);
+    failed = received;
 
     if (isSqsEvent) {
       throw error;
     }
 
     return jsonResponse(500, { error: "Database error" });
+  } finally {
+    emitInvocationMetrics({
+      invocationType: isSqsEvent ? "SQS" : "Direct",
+      received,
+      processed,
+      failed,
+      durationMs: Date.now() - startedAt,
+    });
   }
 };
