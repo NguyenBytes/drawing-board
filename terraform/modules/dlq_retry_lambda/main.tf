@@ -1,6 +1,6 @@
 data "archive_file" "package" {
   type        = "zip"
-  source_dir  = dirname(var.source_file)
+  source_dir  = var.source_dir
   output_path = "${path.module}/${var.function_name}.zip"
   excludes    = var.archive_excludes
 }
@@ -17,15 +17,21 @@ data "aws_iam_policy_document" "assume_role" {
 }
 
 data "aws_iam_policy_document" "queue_access" {
-  count = var.enable_sqs_trigger ? 1 : 0
-
   statement {
+    sid = "ReadAndDeleteDeadLetterMessages"
+
     actions = [
       "sqs:DeleteMessage",
       "sqs:GetQueueAttributes",
-      "sqs:ReceiveMessage"
+      "sqs:ReceiveMessage",
     ]
-    resources = [var.queue_arn]
+    resources = [var.dlq_arn]
+  }
+
+  statement {
+    sid       = "RetryMessagesOnMainQueue"
+    actions   = ["sqs:SendMessage"]
+    resources = [var.main_queue_arn]
   }
 }
 
@@ -41,10 +47,9 @@ resource "aws_iam_role_policy_attachment" "basic" {
 }
 
 resource "aws_iam_role_policy" "queue_access" {
-  count  = var.enable_sqs_trigger ? 1 : 0
   name   = "${var.function_name}-queue-access"
   role   = aws_iam_role.this.id
-  policy = data.aws_iam_policy_document.queue_access[0].json
+  policy = data.aws_iam_policy_document.queue_access.json
 }
 
 resource "aws_lambda_function" "this" {
@@ -58,17 +63,12 @@ resource "aws_lambda_function" "this" {
   timeout          = var.timeout
 
   environment {
-    variables = var.environment_variables
+    variables = merge(var.environment_variables, {
+      DLQ_URL                     = var.dlq_url
+      MAIN_QUEUE_URL              = var.main_queue_url
+      MAX_MESSAGES_PER_INVOCATION = tostring(var.max_messages_per_invocation)
+    })
   }
 
   tags = var.tags
-}
-
-resource "aws_lambda_event_source_mapping" "sqs" {
-  count            = var.enable_sqs_trigger ? 1 : 0
-  event_source_arn = var.queue_arn
-  function_name    = aws_lambda_function.this.arn
-  batch_size       = var.batch_size
-  function_response_types = ["ReportBatchItemFailures"]
-  enabled          = true
 }

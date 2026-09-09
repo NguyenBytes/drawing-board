@@ -6,26 +6,6 @@ variable "source_file" {
   type = string
 }
 
-variable "dependencies_path" {
-  type    = string
-  default = ""
-}
-
-variable "package_json_path" {
-  type    = string
-  default = ""
-}
-
-variable "package_lock_path" {
-  type    = string
-  default = ""
-}
-
-variable "extra_file_paths" {
-  type    = list(string)
-  default = []
-}
-
 variable "archive_excludes" {
   type    = list(string)
   default = []

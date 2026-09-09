@@ -1,0 +1,16 @@
+{
+  "name": "retry-task",
+  "version": "1.0.0",
+  "description": "Checks a dead-letter queue and retries its messages on the main SQS queue.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "zip": "rm -f dlq-retry-lambda.zip && zip -rq dlq-retry-lambda.zip index.js package.json package-lock.json node_modules",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1048.0"
+  }
+}

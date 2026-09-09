@@ -7,7 +7,7 @@ on:
     paths:
       - '.github/workflows/deploy.yml'
       - 'app/**'
-      - 'lambda/**'
+      - 'database-lambda/**'
       - 'terraform/**'
       - 'terraform-backend.hcl'
 
@@ -45,15 +45,19 @@ jobs:
 
       - name: Download CA Certificate
         run: |
-          aws s3 cp "${{ secrets.TF_CA_CERT_S3_URI }}" lambda/ca-certificate.crt
+          aws s3 cp "${{ secrets.TF_CA_CERT_S3_URI }}" database-lambda/ca-certificate.crt
           aws s3 cp "${{ secrets.TF_CA_CERT_S3_URI }}" app/server/ca-certificate.crt
 
       - name: Install Lambda Dependencies
-        working-directory: lambda
+        working-directory: database-lambda
         run: npm i
 
+      - name: Install DLQ Retry Lambda Dependencies
+        working-directory: dlq-retry-lambda
+        run: npm ci
+
       - name: Package Lambda Zip
-        working-directory: lambda
+        working-directory: database-lambda
         run: npm run zip
 
       - name: Write Prod Terraform Vars
