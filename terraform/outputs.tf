@@ -1,15 +1,15 @@
 output "aws_region" {
-  description = "AWS region for the selected workspace."
+  description = "AWS region for this deployment."
   value       = var.aws_region
 }
 
 output "queue_name" {
-  description = "Name of the SQS queue for the selected workspace."
+  description = "Name of the SQS queue."
   value       = module.queue.queue_name
 }
 
 output "queue_url" {
-  description = "Queue URL for the selected workspace."
+  description = "Queue URL."
   value       = module.queue.queue_url
 }
 
@@ -19,23 +19,23 @@ output "queue_arn" {
 }
 
 output "lambda_name" {
-  description = "Lambda function name for the selected workspace."
+  description = "Lambda function name."
   value       = module.worker.function_name
 }
 
 output "app_runtime_aws_access_key_id" {
   description = "AWS access key ID for the prod app runtime user."
-  value       = local.is_prod ? aws_iam_access_key.app_runtime[0].id : null
+  value       = aws_iam_access_key.app_runtime.id
   sensitive   = true
 }
 
 output "app_runtime_aws_secret_access_key" {
   description = "AWS secret access key for the prod app runtime user."
-  value       = local.is_prod ? aws_iam_access_key.app_runtime[0].secret : null
+  value       = aws_iam_access_key.app_runtime.secret
   sensitive   = true
 }
 
 output "app_runtime_iam_user_name" {
   description = "IAM user name for the prod app runtime identity."
-  value       = local.is_prod ? aws_iam_user.app_runtime[0].name : null
+  value       = aws_iam_user.app_runtime.name
 }

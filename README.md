@@ -1,126 +1,131 @@
-# Drawing Board
+# 🖌️ Drawing Board: a Terraform and AWS learning project
 
-Live site: [gridsketching.com](https://gridsketching.com)
+A small full-stack drawing application built to learn how Terraform, AWS, containers, and CI/CD fit together in a production-style deployment. Drawing requests travel from an Express application on a DigitalOcean VPS to Amazon SQS, then to an AWS Lambda worker that stores them in a managed MySQL database.
 
-This repo contains the app, Lambda worker, and Terraform infrastructure for Drawing Board.
+## 🗺️ Overview
 
-## Project Goal
+![Drawing Board system architecture](drawing-board.png)
 
-In the era of AI, I have to keep raising my skillset instead of treating application code as the whole job. This project was a way to push deeper into infrastructure, deployment, and operational thinking so I can build and ship more complete systems.
+The application runs two Express containers behind nginx on a DigitalOcean VPS. The API queues drawing-coordinate work in Amazon SQS; Lambda consumes that work and writes it to DigitalOcean MySQL. Terraform provisions the AWS queue, Lambda function, and least-privilege IAM identity used by the application. The diagram also shows the intended reliability path for dead-letter handling, archiving, alarms, and notifications.
 
-The primary goals were to:
+## 🎯 Goals of this project
 
-- build hands-on experience with Terraform for provisioning and managing AWS infrastructure
-- implement a CI/CD workflow that plans, applies, and deploys production changes through GitHub Actions
-- improve end-to-end ownership of application delivery, including infrastructure, deployment automation, and runtime configuration
+- Learn how to provision, update, and safely track cloud infrastructure with Terraform.
+- Build a queue-backed serverless workflow instead of handling all database work directly in the web application.
+- Practice infrastructure state, modules, IAM permissions, and repeatable deployments.
+- Deploy application and infrastructure changes through GitHub Actions.
 
-## What I Learned
+## 🧰 Key skills used
 
-AI sped up development like crazy on this project. It was able to teach me how Terraform is used in practice, and helped me compare where it fits relative to other tools and patterns I have looked at, including Kafka and Kubernetes.
+### Terraform
 
-I spent a lot more time researching systems design tradeoffs too. Part of the value of this project was comparing approaches like Jenkins vs GitHub Actions and CloudFormation vs Terraform, and getting a better feel for why one choice is cleaner in a given context even when there is no perfect answer.
+- Variables, sensitive inputs, outputs, and remote S3 state
+- Provider and version constraints
+- Reusable SQS and Lambda modules
+- IAM, Lambda, SQS, and resource dependency management
+- Planning, applying, and safely refactoring state addresses
 
-I also learned to appreciate AWS IAM roles and the way AWS services can be tightly connected. A lot of the setup is just roles and permissions pointing to the right resources, with very little exposed publicly. Multi-cloud solutions can be strong too, but there are definite tradeoffs in complexity, integration depth, and operational overhead.
+### AWS and infrastructure
 
-## CI/CD
+- Amazon SQS with a dead-letter queue
+- AWS Lambda and event-source mappings
+- IAM users and least-privilege SQS permissions
+- S3-backed Terraform state with lockfiles
+- GitHub Actions OIDC authentication for AWS
+- Docker Compose, nginx, and DigitalOcean VPS deployment
+- DigitalOcean managed MySQL with a CA certificate
 
-Production delivery runs through [`.github/workflows/deploy.yml`](/home/tom/Desktop/drawing-board/.github/workflows/deploy.yml). The workflow is triggered on pushes to `master` when files under `app/`, `lambda/`, `terraform/`, `terraform-backend.hcl`, or the workflow file itself change.
+## 💭 Reflection / what I learned
 
-The pipeline currently acts as both infrastructure delivery and application deployment:
+### ☁️ Managing infrastructure as code
 
-1. GitHub Actions checks out the repo and configures Terraform and Node.js.
-2. It assumes the `github-actions-drawing-board` IAM role by using GitHub OIDC through `aws-actions/configure-aws-credentials`.
-3. It downloads the database CA certificate from S3 into both `lambda/` and `app/server/`.
-4. It installs Lambda dependencies and packages the worker zip from `lambda/`.
-5. It generates `terraform/prod.tfvars` from GitHub Actions secrets at runtime.
-6. It runs `terraform init`, `terraform validate`, selects or creates the `prod` workspace, and creates a saved plan.
-7. It applies that saved Terraform plan to update AWS infrastructure.
-8. After apply, it reads Terraform outputs for:
-   - `queue_url`
-9. It installs server dependencies for the Express app.
-10. It connects to the VPS, prepares the target directory, uploads `app/`, writes the remote `.env`, and rebuilds `express1`, `express2`, and `nginx` with Docker Compose.
+Before this project, most cloud configuration I used was created through provider consoles. Terraform made the infrastructure reproducible: resources, relationships, and configuration now live alongside the application code. It also made the impact of a change visible before applying it, which is especially helpful when working with paid cloud services.
 
-This is closer to a deployment pipeline than a broad validation pipeline. It does not currently run a separate test suite, lint job, or manual approval gate before apply.
+### ⚡ Designing around queues and serverless work
 
-## Terraform State
+The queue and Lambda worker separate the web request from database work. That boundary makes it easier to reason about failures and gives the system a natural place to add retries, dead-letter handling, monitoring, and archival work as the project grows.
 
-Production Terraform uses the S3 backend defined in [`terraform-backend.hcl`](/home/tom/Desktop/drawing-board/terraform-backend.hcl):
+### 🔐 Treating IAM as application design
+
+IAM was one of the more challenging parts of the project. Terraform helped make the intended permissions explicit: the application runtime identity can send messages only to this project's queue. Working through that policy reinforced that security is not an afterthought—it is part of how the system is designed.
+
+### ✨ Final thoughts
+
+AI assisted the project, but understanding it still required reading documentation, experimenting with Terraform commands, and tracing how deployment, state, queues, and credentials connect. This project is part of my continuing work to grow beyond feature development into infrastructure and operational ownership.
+
+## 🚀 Possible next steps
+
+- Provision the diagram's archive Lambda, EventBridge schedule, S3 log archive, CloudWatch alarms, and SNS notifications with Terraform.
+- Add a redrive workflow for messages that reach the dead-letter queue.
+- Add automated tests and a deployment approval step before production applies.
+- Add rolling or blue-green deployment support for the VPS application containers.
+- Move database credentials to a dedicated secrets-management workflow.
+
+## 🛠️ Do it yourself
+
+### ✅ Prerequisites
+
+- Terraform 1.6 or newer
+- AWS CLI credentials with permission to use the configured AWS account and state bucket
+- Node.js 22 or newer
+- A DigitalOcean MySQL database and its CA certificate
+- A DigitalOcean VPS if you want to deploy the web application
+
+Clone the repository and enter the project directory.
+
+```bash
+git clone <repository-url>
+cd drawing-board
+```
+
+Create a local Terraform variables file. It is ignored by Git because it contains database credentials.
+
+```bash
+cd terraform
+cp /dev/null prod.tfvars
+```
+
+Add your own values to `prod.tfvars`:
 
 ```hcl
-bucket               = "github-actions-drawing-board"
-region               = "us-west-2"
-workspace_key_prefix = "terraform-state"
-use_lockfile         = true
+aws_region = "us-west-2"
+username   = "your_database_username"
+password   = "your_database_password"
+host       = "your_database_host"
+port       = "your_port_here"
+database   = "your_database_name"
+sslmode    = "REQUIRED"
 ```
 
-That means the `prod` workspace state is remote, not local. The repo stores only backend configuration, while Terraform reads and writes production state in S3 during `terraform init`, `plan`, and `apply`.
-
-Important production state notes:
-
-- `terraform/main.tf` declares `backend "s3" {}` and the concrete backend values are passed in from `terraform-backend.hcl` during `terraform init`.
-- The workflow always selects the `prod` workspace before planning and applying, so production state stays isolated from other workspaces.
-- `use_lockfile = true` enables S3 lockfile-based state locking for applies.
-- S3 bucket versioning should be enabled so previous state versions can be recovered if needed.
-
-## Dev
-
-Dev resources are intentionally kept separate from the S3-backed `prod` state.
-
-Use the helper scripts in `terraform/`:
+Install the Lambda dependencies and place the database CA certificate at `lambda/ca-certificate.crt` before packaging.
 
 ```bash
-cd terraform
-bash provision-dev.sh
+cd ../lambda
+npm install
+npm run zip
+cd ../terraform
 ```
 
-This provisions the `dev` resources using an isolated local-backend copy.
-
-To destroy dev resources:
+Initialize Terraform. This project uses an S3 backend with one fixed state key.
 
 ```bash
-cd terraform
-bash destroy-dev.sh
+terraform init -reconfigure -backend-config=terraform-backend.hcl
 ```
 
-This uses local dev state and destroys only the dev resources.
-
-The separation here is deliberate:
-
-- `terraform/provision-dev.sh` copies the Terraform root into a temporary directory.
-- It removes the `backend "s3" {}` block from that temporary copy before running `terraform init`.
-- It then provisions the `dev` workspace with a local backend.
-- `terraform/destroy-dev.sh` uses local dev state to destroy only the `dev` workspace resources.
-
-So the setup is:
-
-- `prod` state: remote in S3, used by GitHub Actions and any direct production Terraform work.
-- `dev` state: local only, intentionally kept out of the S3 backend so it cannot interfere with production.
-
-## Terraform Usage
-
-If you are working directly with production Terraform:
+Format, validate, and review the proposed infrastructure changes.
 
 ```bash
-cd terraform
-terraform init -backend-config=../terraform-backend.hcl
-terraform workspace select prod || terraform workspace new prod
+terraform fmt -check -recursive
+terraform validate
 terraform plan -var-file=prod.tfvars
+```
+
+Provision the AWS resources.
+
+```bash
 terraform apply -var-file=prod.tfvars
 ```
 
-Useful output:
+The production deployment workflow creates `prod.tfvars` from GitHub Actions secrets, provisions Terraform, uploads the app to the VPS, and rebuilds the Docker Compose services. Configure the corresponding repository secrets before using it.
 
-```bash
-terraform output -raw queue_url
-```
-
-## Notes
-
-- `prod.tfvars` contains secrets when generated in CI and should not be committed.
-- `.zip` artifacts are ignored in git.
-- `github-actions-iam-policy.json` is the local reference copy for the GitHub Actions IAM role policy.
-
-## Next Steps
-
-- Add blue-green deployments using DigitalOcean and Cloudflare CLIs.
-- Add a DigitalOcean load balancer to improve rollout and traffic management.
+> **Warning:** This backend points at the project's persistent remote state. Do not run `terraform destroy` against a live deployment. Use a separate state key and credentials for an isolated test stack.

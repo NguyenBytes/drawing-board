@@ -27,7 +27,6 @@ services:
     environment:
       - NODE_ENV=production
       - SERVER_ID=1
-      - AWS_PROFILE=${AWS_PROFILE}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_REGION=${AWS_REGION}
@@ -55,7 +54,6 @@ services:
     environment:
       - NODE_ENV=production
       - SERVER_ID=2
-      - AWS_PROFILE=${AWS_PROFILE}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_REGION=${AWS_REGION}

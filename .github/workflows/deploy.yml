@@ -69,29 +69,27 @@ jobs:
           sslmode        = "${{ secrets.TF_DB_SSLMODE }}"
           EOF
 
-      - name: Terraform Plan Prod
+      - name: Terraform Plan
         working-directory: terraform
         env:
           AWS_REGION: ${{ secrets.TF_AWS_REGION }}
         run: |
-          terraform init -backend-config=../terraform-backend.hcl
+          terraform init -reconfigure -backend-config=terraform-backend.hcl
           terraform validate
-          terraform workspace select prod || terraform workspace new prod
           terraform plan -out=tfplan -var-file=prod.tfvars
 
-      - name: Terraform Apply Prod
+      - name: Terraform Apply
         working-directory: terraform
         env:
           AWS_REGION: ${{ secrets.TF_AWS_REGION }}
         run: terraform apply -auto-approve tfplan
 
-      - name: Capture Prod Runtime Outputs
+      - name: Capture Runtime Outputs
         id: terraform_outputs
         working-directory: terraform
         env:
           AWS_REGION: ${{ secrets.TF_AWS_REGION }}
         run: |
-          terraform workspace select prod
           queue_url="$(terraform output -raw queue_url)"
           access_key_id="$(terraform output -raw app_runtime_aws_access_key_id)"
           secret_access_key="$(terraform output -raw app_runtime_aws_secret_access_key)"

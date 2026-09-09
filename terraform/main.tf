@@ -21,8 +21,7 @@ provider "aws" {
 }
 
 locals {
-  environment = terraform.workspace
-  is_prod     = local.environment == "prod"
+  environment = "prod"
   name_prefix = "${var.project_name}-${local.environment}"
   common_tags = {
     Environment = local.environment
@@ -31,11 +30,19 @@ locals {
   }
 }
 
-check "supported_workspace" {
-  assert {
-    condition     = contains(["dev", "prod"], local.environment)
-    error_message = "Unsupported Terraform workspace. Use either \"dev\" or \"prod\"."
-  }
+moved {
+  from = aws_iam_user.app_runtime[0]
+  to   = aws_iam_user.app_runtime
+}
+
+moved {
+  from = aws_iam_user_policy.app_runtime_sqs_send[0]
+  to   = aws_iam_user_policy.app_runtime_sqs_send
+}
+
+moved {
+  from = aws_iam_access_key.app_runtime[0]
+  to   = aws_iam_access_key.app_runtime
 }
 
 module "queue" {
@@ -46,17 +53,13 @@ module "queue" {
 }
 
 resource "aws_iam_user" "app_runtime" {
-  count = local.is_prod ? 1 : 0
-
   name = "${local.name_prefix}-app-runtime"
   tags = local.common_tags
 }
 
 resource "aws_iam_user_policy" "app_runtime_sqs_send" {
-  count = local.is_prod ? 1 : 0
-
   name = "${local.name_prefix}-app-runtime-sqs-send"
-  user = aws_iam_user.app_runtime[0].name
+  user = aws_iam_user.app_runtime.name
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -71,9 +74,7 @@ resource "aws_iam_user_policy" "app_runtime_sqs_send" {
 }
 
 resource "aws_iam_access_key" "app_runtime" {
-  count = local.is_prod ? 1 : 0
-
-  user = aws_iam_user.app_runtime[0].name
+  user = aws_iam_user.app_runtime.name
 }
 
 module "worker" {
