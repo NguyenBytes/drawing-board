@@ -85,6 +85,7 @@ module "worker" {
   archive_excludes   = ["database-lambda.zip"]
   queue_arn          = module.queue.queue_arn
   enable_sqs_trigger = true
+  batch_size         = 1
 
   environment_variables = {
     APP_ENV   = local.environment

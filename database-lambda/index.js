@@ -168,20 +168,18 @@ export const handler = async (event) => {
     if (isSqsEvent) {
       const batchItemFailures = [];
 
-      await Promise.all(
-        event.Records.map(async (record) => {
-          try {
-            const result = await handleHttpEvent(toQueuedRequest(record.body));
+      for (const record of event.Records) {
+        try {
+          const result = await handleHttpEvent(toQueuedRequest(record.body));
 
-            if (result.statusCode >= 400) {
-              throw new Error(`Message handler returned ${result.statusCode}`);
-            }
-          } catch (error) {
-            console.error(`Unable to process SQS message ${record.messageId}`, error);
-            batchItemFailures.push({ itemIdentifier: record.messageId });
+          if (result.statusCode >= 400) {
+            throw new Error(`Message handler returned ${result.statusCode}`);
           }
-        }),
-      );
+        } catch (error) {
+          console.error(`Unable to process SQS message ${record.messageId}`, error);
+          batchItemFailures.push({ itemIdentifier: record.messageId });
+        }
+      }
 
       failed = batchItemFailures.length;
       processed = received - failed;
