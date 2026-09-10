@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/deploy.yml'
       - 'app/**'
+      - 'archive-lambda/**'
       - 'database-lambda/**'
       - 'terraform/**'
       - 'terraform-backend.hcl'
@@ -55,6 +56,10 @@ jobs:
       - name: Install DLQ Retry Lambda Dependencies
         working-directory: dlq-retry-lambda
         run: npm ci
+
+      - name: Install Archive Lambda Dependencies
+        working-directory: archive-lambda
+        run: npm i
 
       - name: Package Lambda Zip
         working-directory: database-lambda

@@ -1,3 +1,14 @@
+import {
+  to = aws_cloudwatch_log_group.database_lambda
+  id = "/aws/lambda/${local.name_prefix}-worker"
+}
+
+resource "aws_cloudwatch_log_group" "database_lambda" {
+  name              = "/aws/lambda/${local.name_prefix}-worker"
+  retention_in_days = 33
+  tags              = local.common_tags
+}
+
 resource "aws_sns_topic" "database_lambda_failures" {
   name = "${local.name_prefix}-database-lambda-failures"
   tags = local.common_tags

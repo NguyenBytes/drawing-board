@@ -116,3 +116,21 @@ module "dlq_retry" {
   max_messages_per_invocation = 10
   tags                        = local.common_tags
 }
+
+module "archive" {
+  source = "./modules/lambda"
+
+  function_name    = "${local.name_prefix}-archive"
+  source_file      = "${path.module}/../archive-lambda/index.js"
+  archive_excludes = ["archive-lambda.zip"]
+  memory_size      = 512
+  timeout          = 300
+
+  environment_variables = {
+    SOURCE_LOG_GROUP_NAME = aws_cloudwatch_log_group.database_lambda.name
+    ARCHIVE_BUCKET        = aws_s3_bucket.database_lambda_log_archive.id
+    ARCHIVE_PREFIX        = "database-lambda"
+  }
+
+  tags = local.common_tags
+}
