@@ -20,7 +20,7 @@ function requiredEnvironment(name) {
 }
 
 function maxMessagesPerInvocation() {
-  const value = Number.parseInt(process.env.MAX_MESSAGES_PER_INVOCATION || "10", 10);
+	const value = Number.parseInt(process.env.MAX_MESSAGES_PER_INVOCATION || "10", 10);
 
 	if (!Number.isInteger(value) || value < 1) {
 		throw new Error("MAX_MESSAGES_PER_INVOCATION must be a positive integer");

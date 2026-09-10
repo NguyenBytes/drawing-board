@@ -43,7 +43,7 @@ variable "enable_sqs_trigger" {
 
 variable "batch_size" {
   type    = number
-  default = 10
+  default = 1
 }
 
 variable "environment_variables" {
