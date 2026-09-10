@@ -6,8 +6,8 @@ import { writeFile } from "node:fs/promises";
 const cloudWatchLogs = new CloudWatchLogsClient({});
 const s3 = new S3Client({});
 const dayInMilliseconds = 24 * 60 * 60 * 1000;
-const archiveMinimumAgeDays = 14;
-const archiveMaximumAgeDays = 29;
+const archiveMinimumAgeDays = 15;
+const archiveMaximumAgeDays = 30;
 
 function requiredEnvironment(name) {
 	const value = process.env[name];
