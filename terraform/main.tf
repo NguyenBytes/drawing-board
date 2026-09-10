@@ -20,6 +20,8 @@ provider "aws" {
   region = var.aws_region
 }
 
+data "aws_caller_identity" "current" {}
+
 locals {
   environment = "prod"
   name_prefix = "${var.project_name}-${local.environment}"
