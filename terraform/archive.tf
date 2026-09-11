@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "database_lambda_log_archive" {
-  bucket = "${local.name_prefix}-database-lambda-log-archive-${data.aws_caller_identity.current.account_id}"
+  bucket = "drawingboard-prod-archive"
   tags   = local.common_tags
 }
 
