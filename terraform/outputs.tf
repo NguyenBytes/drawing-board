@@ -44,3 +44,20 @@ output "app_runtime_iam_user_name" {
   description = "IAM user name for the prod app runtime identity."
   value       = aws_iam_user.app_runtime.name
 }
+
+output "grafana_aws_access_key_id" {
+  description = "AWS access key ID for the self-hosted Grafana identity."
+  value       = aws_iam_access_key.grafana.id
+  sensitive   = true
+}
+
+output "grafana_aws_secret_access_key" {
+  description = "AWS secret access key for the self-hosted Grafana identity."
+  value       = aws_iam_access_key.grafana.secret
+  sensitive   = true
+}
+
+output "grafana_database_lambda_logs_role_arn" {
+  description = "Role Grafana assumes to read database Lambda CloudWatch logs."
+  value       = aws_iam_role.grafana_database_lambda_logs.arn
+}

@@ -102,11 +102,19 @@ jobs:
           queue_url="$(terraform output -raw queue_url)"
           access_key_id="$(terraform output -raw app_runtime_aws_access_key_id)"
           secret_access_key="$(terraform output -raw app_runtime_aws_secret_access_key)"
+          grafana_access_key_id="$(terraform output -raw grafana_aws_access_key_id)"
+          grafana_secret_access_key="$(terraform output -raw grafana_aws_secret_access_key)"
+          grafana_role_arn="$(terraform output -raw grafana_database_lambda_logs_role_arn)"
           echo "::add-mask::$access_key_id"
           echo "::add-mask::$secret_access_key"
+          echo "::add-mask::$grafana_access_key_id"
+          echo "::add-mask::$grafana_secret_access_key"
           echo "queue_url=$queue_url" >> "$GITHUB_OUTPUT"
           echo "app_runtime_aws_access_key_id=$access_key_id" >> "$GITHUB_OUTPUT"
           echo "app_runtime_aws_secret_access_key=$secret_access_key" >> "$GITHUB_OUTPUT"
+          echo "grafana_aws_access_key_id=$grafana_access_key_id" >> "$GITHUB_OUTPUT"
+          echo "grafana_aws_secret_access_key=$grafana_secret_access_key" >> "$GITHUB_OUTPUT"
+          echo "grafana_database_lambda_logs_role_arn=$grafana_role_arn" >> "$GITHUB_OUTPUT"
 
       - name: Download CA Certificate
         run: aws s3 cp "${{ secrets.TF_CA_CERT_S3_URI }}" app/server/ca-certificate.crt
@@ -147,6 +155,11 @@ jobs:
             AWS_ACCESS_KEY_ID=${{ steps.terraform_outputs.outputs.app_runtime_aws_access_key_id }}
             AWS_SECRET_ACCESS_KEY=${{ steps.terraform_outputs.outputs.app_runtime_aws_secret_access_key }}
             AWS_REGION=${{ secrets.TF_AWS_REGION }}
+            GRAFANA_ADMIN_USER=${{ secrets.GRAFANA_ADMIN_USER }}
+            GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+            GRAFANA_AWS_ACCESS_KEY_ID=${{ steps.terraform_outputs.outputs.grafana_aws_access_key_id }}
+            GRAFANA_AWS_SECRET_ACCESS_KEY=${{ steps.terraform_outputs.outputs.grafana_aws_secret_access_key }}
+            GRAFANA_AWS_ROLE_ARN=${{ steps.terraform_outputs.outputs.grafana_database_lambda_logs_role_arn }}
             QUEUE_URL=${{ steps.terraform_outputs.outputs.queue_url }}
             username=${{ secrets.TF_DB_USERNAME }}
             password=${{ secrets.TF_DB_PASSWORD }}
@@ -155,4 +168,4 @@ jobs:
             database=${{ secrets.TF_DB_NAME }}
             sslmode=${{ secrets.TF_DB_SSLMODE }}
             EOF
-            docker compose up -d --build express1 express2 nginx
+            docker compose up -d --build express1 express2 grafana nginx
