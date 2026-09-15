@@ -156,4 +156,5 @@ jobs:
             sslmode=${{ secrets.TF_DB_SSLMODE }}
             EOF
             docker rm -f grafana || true
-            docker compose up -d --build express1 express2 nginx
+            docker rm -f express-server-2 || true
+            docker compose up -d --build express1 nginx
