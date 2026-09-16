@@ -1,131 +1,47 @@
-# 🖌️ Drawing Board: a Terraform and AWS learning project
+# 🖌️ Drawing Board: AWS systems design with Terraform
 
-A small full-stack drawing application built to learn how Terraform, AWS, containers, and CI/CD fit together in a production-style deployment. Drawing requests travel from an Express application on a DigitalOcean VPS to Amazon SQS, then to an AWS Lambda worker that stores them in a managed MySQL database.
+A personal project to learn Terraform, build serverless workflows, and systems Design with AWS. 
 
 ## 🗺️ Overview
 
 ![Drawing Board system architecture](drawing-board.png)
 
-The application runs two Express containers behind nginx on a DigitalOcean VPS. The API queues drawing-coordinate work in Amazon SQS; Lambda consumes that work and writes it to DigitalOcean MySQL. Terraform provisions the AWS queue, Lambda function, and least-privilege IAM identity used by the application. The diagram also shows the intended reliability path for dead-letter handling, archiving, alarms, and notifications.
 
 ## 🎯 Goals of this project
 
-- Learn how to provision, update, and safely track cloud infrastructure with Terraform.
-- Build a queue-backed serverless workflow instead of handling all database work directly in the web application.
-- Practice infrastructure state, modules, IAM permissions, and repeatable deployments.
-- Deploy application and infrastructure changes through GitHub Actions.
+- Provision scalable cloud infrastructure using Terraform and Github Action
+- Design secure systems using AWS IAM roles
+- Design fault tolerant and monitorable systems using AWS Cloudwatch and SNS
+- Build serverless workflows using AWS Lambda, SQS, and S3
+- Reduce potential costs by creating a service that archives Cloudwatch Logs
 
 ## 🧰 Key skills used
 
-### Terraform
-
-- Variables, sensitive inputs, outputs, and remote S3 state
-- Provider and version constraints
-- Reusable SQS and Lambda modules
-- IAM, Lambda, SQS, and resource dependency management
-- Planning, applying, and safely refactoring state addresses
-
-### AWS and infrastructure
-
-- Amazon SQS with a dead-letter queue
-- AWS Lambda and event-source mappings
-- IAM users and least-privilege SQS permissions
-- S3-backed Terraform state with lockfiles
-- GitHub Actions OIDC authentication for AWS
-- Docker Compose, nginx, and DigitalOcean VPS deployment
-- DigitalOcean managed MySQL with a CA certificate
+- Terraform
+- GitHub Actions
+- AWS Lambda
+- Amazon SQS and dead-letter queues
+- AWS IAM
+- Amazon CloudWatch and SNS
+- Amazon S3
+- Amazon EventBridge
+- Docker Compose and nginx
 
 ## 💭 Reflection / what I learned
 
-### ☁️ Managing infrastructure as code
+One thing that really separates a person who is new to software engineering and someone with experience is not just making applications and systems, but also making them fault tolerant and secure as well. This project was initially just the sqs queue and database lamdba but I wanted to add some features that would make this system more fault tolerant and monitorable.
 
-Before this project, most cloud configuration I used was created through provider consoles. Terraform made the infrastructure reproducible: resources, relationships, and configuration now live alongside the application code. It also made the impact of a change visible before applying it, which is especially helpful when working with paid cloud services.
+### SQS and Dead Letter queue
+a pattern that I had but never used when I first made this project was the dead letter queue. In this update I handle this dead letter queue through a retry lambda triggered by a cloudwatch alarm. I orignally had this retry lambda run every 30 minutes but that would be uncessarily running it if it doesnt have anything in the queue, costing me more potential money. A cloudwatch alarm is a better fit because it only is triggered when there are actually messages in the DLQ
 
-### ⚡ Designing around queues and serverless work
-
-The queue and Lambda worker separate the web request from database work. That boundary makes it easier to reason about failures and gives the system a natural place to add retries, dead-letter handling, monitoring, and archival work as the project grows.
-
-### 🔐 Treating IAM as application design
-
-IAM was one of the more challenging parts of the project. Terraform helped make the intended permissions explicit: the application runtime identity can send messages only to this project's queue. Working through that policy reinforced that security is not an afterthought—it is part of how the system is designed.
+### Cloudwatch, SNS, and Archive Lambda
+To make this app monitorable I added custom cloudwatch logs to the database lambda and a cloudwatch alarm to SNS when there are more then 5 failed request in a short span of time. Many indie developersdo not think about performance but when working on large scale applications and processes, it is a major concern. I decided that this is a small enough project to where just a simple cloudwatch alarm would do, another container for grafana would be uncessary for now. I do want to work on other larger projects next!
 
 ### ✨ Final thoughts
-
-AI assisted the project, but understanding it still required reading documentation, experimenting with Terraform commands, and tracing how deployment, state, queues, and credentials connect. This project is part of my continuing work to grow beyond feature development into infrastructure and operational ownership.
+Making an application vs making it well are very different tasks. This project went from just some load balancing containers on a server to a secure, fault tolerant, and monitorable serverless workflow. The skills I gained from this will definietly help me in my Cloud Engieering journey.
 
 ## 🚀 Possible next steps
 
-- Provision the diagram's archive Lambda, EventBridge schedule, S3 log archive, CloudWatch alarms, and SNS notifications with Terraform.
-- Add a redrive workflow for messages that reach the dead-letter queue.
-- Add automated tests and a deployment approval step before production applies.
-- Add rolling or blue-green deployment support for the VPS application containers.
-- Move database credentials to a dedicated secrets-management workflow.
+- add a container for Grafana and create dashboards for various custom metrics. use AWS Athena/Glue to get archived logs from s3
+- add blue green deployments instead of manual git clone in CICD
 
-## 🛠️ Do it yourself
-
-### ✅ Prerequisites
-
-- Terraform 1.6 or newer
-- AWS CLI credentials with permission to use the configured AWS account and state bucket
-- Node.js 22 or newer
-- A DigitalOcean MySQL database and its CA certificate
-- A DigitalOcean VPS if you want to deploy the web application
-
-Clone the repository and enter the project directory.
-
-```bash
-git clone <repository-url>
-cd drawing-board
-```
-
-Create a local Terraform variables file. It is ignored by Git because it contains database credentials.
-
-```bash
-cd terraform
-cp /dev/null prod.tfvars
-```
-
-Add your own values to `prod.tfvars`:
-
-```hcl
-aws_region = "us-west-2"
-username   = "your_database_username"
-password   = "your_database_password"
-host       = "your_database_host"
-port       = "your_port_here"
-database   = "your_database_name"
-sslmode    = "REQUIRED"
-```
-
-Install the Lambda dependencies and place the database CA certificate at `database-lambda/ca-certificate.crt` before packaging.
-
-```bash
-cd ../database-lambda
-npm install
-npm run zip
-cd ../terraform
-```
-
-Initialize Terraform. This project uses an S3 backend with one fixed state key.
-
-```bash
-terraform init -reconfigure -backend-config=terraform-backend.hcl
-```
-
-Format, validate, and review the proposed infrastructure changes.
-
-```bash
-terraform fmt -check -recursive
-terraform validate
-terraform plan -var-file=prod.tfvars
-```
-
-Provision the AWS resources.
-
-```bash
-terraform apply -var-file=prod.tfvars
-```
-
-The production deployment workflow creates `prod.tfvars` from GitHub Actions secrets, provisions Terraform, uploads the app to the VPS, and rebuilds the Docker Compose services. Configure the corresponding repository secrets before using it.
-
-> **Warning:** This backend points at the project's persistent remote state. Do not run `terraform destroy` against a live deployment. Use a separate state key and credentials for an isolated test stack.
